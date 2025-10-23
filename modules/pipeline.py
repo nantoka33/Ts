@@ -1,6 +1,6 @@
 from pathlib import Path
-import os, re, json, tempfile, subprocess, sys
-from datetime import timedelta
+import re, json, tempfile, subprocess, sys
+from typing import Optional
 
 def hhmmss(seconds: float) -> str:
     seconds = max(0.0, float(seconds))
@@ -37,7 +37,7 @@ def parse_vtt(vtt_path: Path):
         segs.append({"start": to_sec(start), "end": to_sec(end), "text": text})
     return segs
 
-def try_download_subtitles(url: str, outdir: Path, lang: str|None):
+def try_download_subtitles(url: str, outdir: Path, lang: Optional[str]):
     ensure_module("yt_dlp","yt-dlp")
     outtpl = str(outdir / "%(id)s.%(ext)s")
     for subs_flag in [["--write-subs"], ["--write-auto-subs"]]:
@@ -62,7 +62,7 @@ def download_audio(url: str, outdir: Path):
         raise RuntimeError("音声DLに失敗")
     return cand[0]
 
-def transcribe_with_whisper(audio_path: Path, lang: str|None, model_size="small"):
+def transcribe_with_whisper(audio_path: Path, lang: Optional[str], model_size="small"):
     # faster-whisper 優先
     try:
         from faster_whisper import WhisperModel
@@ -77,14 +77,14 @@ def transcribe_with_whisper(audio_path: Path, lang: str|None, model_size="small"
         result = model.transcribe(str(audio_path), language=lang or None)
         return [{"start": s["start"], "end": s["end"], "text": s["text"].strip()} for s in result["segments"]]
 
-def extract_video_id(url: str) -> str|None:
+def extract_video_id(url: str) -> Optional[str]:
     m = re.search(r"v=([\\w-]{6,})", url)
     if m: return m.group(1)
     m = re.search(r"youtu\\.be/([\\w-]{6,})", url)
     if m: return m.group(1)
     return None
 
-def prepare_from_url(url: str, lang: str|None="ja", model_size="small", prefer_subs=True):
+def prepare_from_url(url: str, lang: Optional[str] = "ja", model_size="small", prefer_subs=True):
     out = Path("data"); out.mkdir(parents=True, exist_ok=True)
     video_id = extract_video_id(url)
     # 字幕があれば使う
